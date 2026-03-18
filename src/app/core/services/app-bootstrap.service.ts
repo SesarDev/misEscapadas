@@ -12,8 +12,23 @@ export class AppBootstrapService {
   ) {}
 
   async initialize(): Promise<void> {
-    this.appCheckService.initialize();
-    await this.authService.ensureSession();
-    await this.roomsStore.initialize();
+    try {
+      this.appCheckService.initialize();
+    } catch (error) {
+      console.error('Fallo inicializando App Check.', error);
+    }
+
+    try {
+      await this.authService.ensureSession();
+    } catch (error) {
+      console.error('Fallo inicializando autenticación.', error);
+    }
+
+    try {
+      await this.roomsStore.initialize();
+    } catch (error) {
+      console.error('Fallo cargando las salas. Se continuará con estado vacío/local.', error);
+      this.roomsStore.loading.set(false);
+    }
   }
 }

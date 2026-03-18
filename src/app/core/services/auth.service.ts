@@ -1,4 +1,4 @@
-import { Injectable, Optional, inject, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Auth, User, browserLocalPersistence, onAuthStateChanged, setPersistence, signInAnonymously } from '@angular/fire/auth';
 import { hasFirebaseConfig } from '../firebase/firebase-utils';
 import { environment } from '@env/environment';
@@ -19,31 +19,37 @@ export class AuthService {
 
     const auth = this.auth;
 
-    await setPersistence(auth, browserLocalPersistence);
+    try {
+      await setPersistence(auth, browserLocalPersistence);
 
-    await new Promise<void>((resolve, reject) => {
-      const unsubscribe = onAuthStateChanged(
-        auth,
-        async (user) => {
-          this.currentUser.set(user);
+      await new Promise<void>((resolve, reject) => {
+        const unsubscribe = onAuthStateChanged(
+          auth,
+          async (user) => {
+            this.currentUser.set(user);
 
-          if (!user) {
-            try {
-              await signInAnonymously(auth as Auth);
-              return;
-            } catch (error) {
-              reject(error);
-              unsubscribe();
-              return;
+            if (!user) {
+              try {
+                await signInAnonymously(auth as Auth);
+                return;
+              } catch (error) {
+                reject(error);
+                unsubscribe();
+                return;
+              }
             }
-          }
 
-          this.ready.set(true);
-          unsubscribe();
-          resolve();
-        },
-        reject
-      );
-    });
+            this.ready.set(true);
+            unsubscribe();
+            resolve();
+          },
+          reject
+        );
+      });
+    } catch (error) {
+      console.error('No se pudo iniciar sesión anónima en Firebase. Se usará modo local.', error);
+      this.currentUser.set(null);
+      this.ready.set(true);
+    }
   }
 }

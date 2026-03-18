@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Firestore, Timestamp, collection, collectionData, deleteDoc, doc, getDocs, orderBy, query, setDoc } from '@angular/fire/firestore';
 import { Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { EscapeRoom } from '../models/escape-room.model';
 import { DEMO_ESCAPE_ROOMS } from './demo-seed';
 import { hasFirebaseConfig } from '../core/firebase/firebase-utils';
@@ -21,27 +21,41 @@ export class RoomsRepositoryService {
     }
 
     const roomsRef = query(collection(this.firestore, 'escapeRooms'), orderBy('meta.updatedAt', 'desc'));
-    return collectionData(roomsRef, { idField: 'id' }).pipe(map((rooms) => rooms.map((room) => this.fromFirestore(room as Record<string, unknown>))));
+    return collectionData(roomsRef, { idField: 'id' }).pipe(
+      map((rooms) => rooms.map((room) => this.fromFirestore(room as Record<string, unknown>))),
+      catchError((error) => {
+        console.error('No se pudieron leer salas desde Firestore. Se usará almacenamiento local.', error);
+        return of(this.readLocal());
+      })
+    );
   }
 
   async saveRoom(room: EscapeRoom): Promise<void> {
     if (!this.useFirebase || !this.firestore) {
-      const rooms = this.readLocal();
-      const next = [...rooms.filter((entry) => entry.id !== room.id), room];
-      this.writeLocal(next);
+      this.saveLocalRoom(room);
       return;
     }
 
-    await setDoc(doc(this.firestore, 'escapeRooms', room.id), this.toFirestore(room));
+    try {
+      await setDoc(doc(this.firestore, 'escapeRooms', room.id), this.toFirestore(room));
+    } catch (error) {
+      console.error('No se pudo guardar en Firestore. Se guardará en local.', error);
+      this.saveLocalRoom(room);
+    }
   }
 
   async deleteRoom(id: string): Promise<void> {
     if (!this.useFirebase || !this.firestore) {
-      this.writeLocal(this.readLocal().filter((room) => room.id !== id));
+      this.deleteLocalRoom(id);
       return;
     }
 
-    await deleteDoc(doc(this.firestore, 'escapeRooms', id));
+    try {
+      await deleteDoc(doc(this.firestore, 'escapeRooms', id));
+    } catch (error) {
+      console.error('No se pudo borrar en Firestore. Se borrará en local.', error);
+      this.deleteLocalRoom(id);
+    }
   }
 
   async seedDemoData(force = false): Promise<void> {
@@ -53,16 +67,23 @@ export class RoomsRepositoryService {
     }
 
     const firestore = this.firestore;
-    const snapshot = await getDocs(collection(firestore, 'escapeRooms'));
-    if (!force && !snapshot.empty) {
-      return;
-    }
+    try {
+      const snapshot = await getDocs(collection(firestore, 'escapeRooms'));
+      if (!force && !snapshot.empty) {
+        return;
+      }
 
-    if (force) {
-      await Promise.all(snapshot.docs.map((room) => deleteDoc(room.ref)));
-    }
+      if (force) {
+        await Promise.all(snapshot.docs.map((room) => deleteDoc(room.ref)));
+      }
 
-    await Promise.all(DEMO_ESCAPE_ROOMS.map((room) => setDoc(doc(firestore, 'escapeRooms', room.id), this.toFirestore(room))));
+      await Promise.all(DEMO_ESCAPE_ROOMS.map((room) => setDoc(doc(firestore, 'escapeRooms', room.id), this.toFirestore(room))));
+    } catch (error) {
+      console.error('No se pudo sembrar Firestore. Se usarán datos locales.', error);
+      if (force || !this.readLocal().length) {
+        this.writeLocal(DEMO_ESCAPE_ROOMS);
+      }
+    }
   }
 
   async clearDemoData(): Promise<void> {
@@ -71,8 +92,13 @@ export class RoomsRepositoryService {
       return;
     }
 
-    const snapshot = await getDocs(collection(this.firestore, 'escapeRooms'));
-    await Promise.all(snapshot.docs.map((entry) => deleteDoc(entry.ref)));
+    try {
+      const snapshot = await getDocs(collection(this.firestore, 'escapeRooms'));
+      await Promise.all(snapshot.docs.map((entry) => deleteDoc(entry.ref)));
+    } catch (error) {
+      console.error('No se pudo limpiar Firestore. Se limpiará local.', error);
+      this.writeLocal([]);
+    }
   }
 
   private readLocal(): EscapeRoom[] {
@@ -90,6 +116,16 @@ export class RoomsRepositoryService {
 
   private writeLocal(rooms: EscapeRoom[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms.map((room) => roomToStorage(room))));
+  }
+
+  private saveLocalRoom(room: EscapeRoom): void {
+    const rooms = this.readLocal();
+    const next = [...rooms.filter((entry) => entry.id !== room.id), room];
+    this.writeLocal(next);
+  }
+
+  private deleteLocalRoom(id: string): void {
+    this.writeLocal(this.readLocal().filter((room) => room.id !== id));
   }
 
   private toFirestore(room: EscapeRoom): Record<string, unknown> {
