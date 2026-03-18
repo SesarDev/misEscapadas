@@ -1,0 +1,84 @@
+@use '@angular/material' as mat;
+
+:root {
+  --font-display: 'Cormorant Garamond', serif;
+  --font-body: 'Manrope', sans-serif;
+  --color-bg: #071019;
+  --color-surface: #111b26;
+  --color-surface-strong: #182434;
+  --color-text: #f4efe7;
+  --color-muted: #9ca8b7;
+  --color-accent: #d6b36f;
+  --color-danger: #ffb4ab;
+}
+
+$theme: mat.define-theme(
+  (
+    color: (
+      primary: mat.$azure-palette,
+      tertiary: mat.$yellow-palette,
+      theme-type: dark
+    ),
+    density: (
+      scale: -1
+    ),
+    typography: (
+      plain-family: 'Manrope, sans-serif',
+      brand-family: 'Cormorant Garamond, serif'
+    )
+  )
+);
+
+html {
+  color-scheme: dark;
+  @include mat.all-component-themes($theme);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-body);
+  background:
+    radial-gradient(circle at top, rgba(214, 179, 111, 0.09), transparent 32%),
+    linear-gradient(180deg, #09121a 0%, #050a11 100%);
+  color: var(--color-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+p,
+span,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+}
+
+mat-card,
+.mat-mdc-card {
+  border-radius: 1.35rem !important;
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+.mat-mdc-outlined-button,
+.mat-mdc-unelevated-button {
+  border-radius: 999px !important;
+}
+
+a {
+  color: inherit;
+}

@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isString(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    function isNullableString(value, max) {
+      return value == null || isString(value, max);
+    }
+
+    function isNullableNumber(value) {
+      return value == null || value is number;
+    }
+
+    function isNullableBool(value) {
+      return value == null || value is bool;
+    }
+
+    function isStatus(value) {
+      return value in ['done', 'wishlist'];
+    }
+
+    function isRating(value) {
+      return value == null || (value is number && value >= 0 && value <= 10);
+    }
+
+    function isEscapeRoomPayload(data) {
+      return data.keys().hasOnly([
+        'name',
+        'company',
+        'city',
+        'status',
+        'playedAt',
+        'players',
+        'difficulty',
+        'theme',
+        'fearLevel',
+        'durationMinutes',
+        'price',
+        'recommended',
+        'notes',
+        'isFavorite',
+        'ratings',
+        'meta'
+      ]) &&
+      isString(data.name, 120) &&
+      isString(data.company, 120) &&
+      isString(data.city, 80) &&
+      isStatus(data.status) &&
+      (data.playedAt == null || data.playedAt is timestamp) &&
+      isNullableNumber(data.players) &&
+      isNullableString(data.difficulty, 40) &&
+      isNullableString(data.theme, 60) &&
+      isNullableString(data.fearLevel, 40) &&
+      isNullableNumber(data.durationMinutes) &&
+      isNullableNumber(data.price) &&
+      isNullableBool(data.recommended) &&
+      isString(data.notes, 4000) &&
+      data.isFavorite is bool &&
+      data.ratings.keys().hasOnly([
+        'history',
+        'ambience',
+        'gameplay',
+        'gameMaster',
+        'overall',
+        'immersion',
+        'puzzles'
+      ]) &&
+      isRating(data.ratings.history) &&
+      isRating(data.ratings.ambience) &&
+      isRating(data.ratings.gameplay) &&
+      isRating(data.ratings.gameMaster) &&
+      isRating(data.ratings.overall) &&
+      isRating(data.ratings.immersion) &&
+      isRating(data.ratings.puzzles) &&
+      data.meta.keys().hasOnly(['createdAt', 'updatedAt']) &&
+      data.meta.createdAt is timestamp &&
+      data.meta.updatedAt is timestamp;
+    }
+
+    match /escapeRooms/{roomId} {
+      allow read, create, update, delete: if isSignedIn() &&
+        (request.method == 'delete' || isEscapeRoomPayload(request.resource.data));
+    }
+  }
+}

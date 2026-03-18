@@ -1,0 +1,25 @@
+# Angular
+/dist
+/out-tsc
+/.angular
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
+
+# IDEs
+/.idea
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+src/environments/environment.local.ts
+
+# OS
+.DS_Store
+Thumbs.db
