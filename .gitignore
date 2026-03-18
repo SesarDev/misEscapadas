@@ -17,6 +17,7 @@ yarn-error.log
 
 # Firebase
 .firebase/
+.firebase-config/
 firebase-debug.log
 src/environments/environment.local.ts
 

@@ -69,6 +69,7 @@ La aplicacion puede arrancar sin credenciales reales de Firebase. En ese caso us
    - `src/environments/environment.ts`
    - `src/environments/environment.prod.ts`
 5. Configura App Check con reCAPTCHA v3 y coloca la `siteKey`.
+   - Sin esa clave la app puede desplegarse, pero App Check no quedara activo.
 6. Copia `.firebaserc.example` a `.firebaserc` y cambia el id del proyecto si fuera necesario.
 
 Ejemplo de campos necesarios:
