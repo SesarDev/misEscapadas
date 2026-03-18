@@ -16,9 +16,13 @@ export class AppCheckService {
         environment.appCheck.debugToken;
     }
 
-    initializeAppCheck(getApp(), {
-      provider: new ReCaptchaV3Provider(environment.appCheck.siteKey),
-      isTokenAutoRefreshEnabled: true
-    });
+    try {
+      initializeAppCheck(getApp(), {
+        provider: new ReCaptchaV3Provider(environment.appCheck.siteKey),
+        isTokenAutoRefreshEnabled: true
+      });
+    } catch (error) {
+      console.error('No se pudo inicializar Firebase App Check.', error);
+    }
   }
 }
