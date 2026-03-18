@@ -3,6 +3,7 @@ import { Firestore, Timestamp, collection, collectionData, deleteDoc, doc, getDo
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { EscapeRoom } from '../models/escape-room.model';
+import { AuthService } from '../core/services/auth.service';
 import { DEMO_ESCAPE_ROOMS } from './demo-seed';
 import { hasFirebaseConfig } from '../core/firebase/firebase-utils';
 import { environment } from '@env/environment';
@@ -13,14 +14,16 @@ const STORAGE_KEY = 'mis-escapadas.rooms';
 @Injectable({ providedIn: 'root' })
 export class RoomsRepositoryService {
   private readonly firestore = inject(Firestore, { optional: true });
+  private readonly authService = inject(AuthService);
   private readonly useFirebase = hasFirebaseConfig(environment.firebase);
 
   watchRooms(): Observable<EscapeRoom[]> {
-    if (!this.useFirebase || !this.firestore) {
+    if (!this.canUseRemote()) {
       return of(this.readLocal());
     }
 
-    const roomsRef = query(collection(this.firestore, 'escapeRooms'), orderBy('meta.updatedAt', 'desc'));
+    const firestore = this.firestore as Firestore;
+    const roomsRef = query(collection(firestore, 'escapeRooms'), orderBy('meta.updatedAt', 'desc'));
     return collectionData(roomsRef, { idField: 'id' }).pipe(
       map((rooms) => rooms.map((room) => this.fromFirestore(room as Record<string, unknown>))),
       catchError((error) => {
@@ -31,13 +34,15 @@ export class RoomsRepositoryService {
   }
 
   async saveRoom(room: EscapeRoom): Promise<void> {
-    if (!this.useFirebase || !this.firestore) {
+    if (!this.canUseRemote()) {
       this.saveLocalRoom(room);
       return;
     }
 
+    const firestore = this.firestore as Firestore;
+
     try {
-      await setDoc(doc(this.firestore, 'escapeRooms', room.id), this.toFirestore(room));
+      await setDoc(doc(firestore, 'escapeRooms', room.id), this.toFirestore(room));
     } catch (error) {
       console.error('No se pudo guardar en Firestore. Se guardará en local.', error);
       this.saveLocalRoom(room);
@@ -45,13 +50,15 @@ export class RoomsRepositoryService {
   }
 
   async deleteRoom(id: string): Promise<void> {
-    if (!this.useFirebase || !this.firestore) {
+    if (!this.canUseRemote()) {
       this.deleteLocalRoom(id);
       return;
     }
 
+    const firestore = this.firestore as Firestore;
+
     try {
-      await deleteDoc(doc(this.firestore, 'escapeRooms', id));
+      await deleteDoc(doc(firestore, 'escapeRooms', id));
     } catch (error) {
       console.error('No se pudo borrar en Firestore. Se borrará en local.', error);
       this.deleteLocalRoom(id);
@@ -59,14 +66,14 @@ export class RoomsRepositoryService {
   }
 
   async seedDemoData(force = false): Promise<void> {
-    if (!this.useFirebase || !this.firestore) {
+    if (!this.canUseRemote()) {
       if (force || !this.readLocal().length) {
         this.writeLocal(DEMO_ESCAPE_ROOMS);
       }
       return;
     }
 
-    const firestore = this.firestore;
+    const firestore = this.firestore as Firestore;
     try {
       const snapshot = await getDocs(collection(firestore, 'escapeRooms'));
       if (!force && !snapshot.empty) {
@@ -87,13 +94,15 @@ export class RoomsRepositoryService {
   }
 
   async clearDemoData(): Promise<void> {
-    if (!this.useFirebase || !this.firestore) {
+    if (!this.canUseRemote()) {
       this.writeLocal([]);
       return;
     }
 
+    const firestore = this.firestore as Firestore;
+
     try {
-      const snapshot = await getDocs(collection(this.firestore, 'escapeRooms'));
+      const snapshot = await getDocs(collection(firestore, 'escapeRooms'));
       await Promise.all(snapshot.docs.map((entry) => deleteDoc(entry.ref)));
     } catch (error) {
       console.error('No se pudo limpiar Firestore. Se limpiará local.', error);
@@ -116,6 +125,10 @@ export class RoomsRepositoryService {
 
   private writeLocal(rooms: EscapeRoom[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms.map((room) => roomToStorage(room))));
+  }
+
+  private canUseRemote(): boolean {
+    return this.useFirebase && !!this.firestore && !!this.authService.currentUser();
   }
 
   private saveLocalRoom(room: EscapeRoom): void {
