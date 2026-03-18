@@ -9,7 +9,7 @@ export const environment = {
     appId: '1:92832154994:web:9364e43a5069a7bf0e09eb'
   },
   appCheck: {
-    siteKey: '',
+    siteKey: '6LcuGo8sAAAAAHC8yh_9CP-e0SPk8yWOwwXcQeZb',
     debugToken: false
   }
 };
